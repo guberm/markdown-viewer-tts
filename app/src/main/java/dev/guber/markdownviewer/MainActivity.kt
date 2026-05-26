@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
 import android.text.method.LinkMovementMethod
-import android.text.util.Linkify
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
@@ -23,6 +22,7 @@ import dev.guber.markdownviewer.databinding.ActivityMainBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.html.HtmlPlugin
+import io.noties.markwon.linkify.LinkifyPlugin
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         markwon = Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
             .usePlugin(HtmlPlugin.create())
+            .usePlugin(LinkifyPlugin.create())
             .build()
         tts = TextToSpeech(this, this)
 
@@ -157,12 +158,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding.openFileButton.setOnClickListener {
             openDocument.launch(arrayOf("text/plain", "text/*", "application/octet-stream"))
         }
+        binding.primaryOpenButton.setOnClickListener {
+            openDocument.launch(arrayOf("text/plain", "text/*", "application/octet-stream"))
+        }
         binding.readButton.setOnClickListener {
+            speakCurrent()
+        }
+        binding.primaryTtsButton.setOnClickListener {
             speakCurrent()
         }
 
         binding.contentView.movementMethod = LinkMovementMethod.getInstance()
-        Linkify.addLinks(binding.contentView, Linkify.WEB_URLS)
+        binding.contentView.linksClickable = true
         applyFontPrefs()
     }
 
