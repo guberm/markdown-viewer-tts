@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding.fontSpinner.setSelection(fontOptions.indexOf(savedFont).coerceAtLeast(0))
         binding.fontSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { position ->
             prefs.edit { putString("font_family", fontOptions[position]) }
-            applyFontPrefs()
+            renderFilteredMarkdown()
         })
 
         val fontSize = prefs.getInt("font_size", 18)
@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val size = progress + 12
             prefs.edit { putInt("font_size", size) }
             binding.fontSizeLabel.text = "Font size: ${size}sp"
-            applyFontPrefs()
+            renderFilteredMarkdown()
         })
         binding.fontSizeLabel.text = "Font size: ${fontSize}sp"
 
@@ -236,8 +236,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun renderFilteredMarkdown() {
         val filtered = if (selectedTag.isNullOrBlank()) currentText else filterByTag(currentText, selectedTag!!)
-        markwon.setMarkdown(binding.contentView, filtered)
         applyFontPrefs()
+        markwon.setMarkdown(binding.contentView, filtered)
+        binding.contentView.movementMethod = LinkMovementMethod.getInstance()
+        binding.contentView.linksClickable = true
     }
 
     private fun renderTagChips(tags: List<String>) {
