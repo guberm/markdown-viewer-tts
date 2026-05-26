@@ -1,0 +1,36 @@
+R_DEF: Internal format may change without notice
+local
+color mdv_accent
+color mdv_primary
+color mdv_primary_dark
+color mdv_surface
+color mdv_text
+drawable tag_chip_bg
+id action_open
+id action_read_aloud
+id action_stop_reading
+id contentView
+id drawerLayout
+id fileNameText
+id fontSeek
+id fontSizeLabel
+id fontSpinner
+id openFileButton
+id readButton
+id settingsDrawer
+id speechRateLabel
+id speechSeek
+id tagContainer
+id toolbar
+layout activity_main
+menu main_menu
+string all_tags
+string app_name
+string choose_font
+string font_size
+string open_file
+string read_aloud
+string sample_title
+string speech_rate
+string stop_reading
+style Theme.MarkdownViewer

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MarkdownViewer" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mdv_primary</item>
+        <item name="colorPrimaryVariant">@color/mdv_primary_dark</item>
+        <item name="colorSecondary">@color/mdv_accent</item>
+        <item name="android:statusBarColor">@color/mdv_primary_dark</item>
+        <item name="android:navigationBarColor">@color/mdv_primary_dark</item>
+    </style>
+</resources>

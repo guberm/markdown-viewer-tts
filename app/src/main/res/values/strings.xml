@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Markdown Viewer</string>
+    <string name="open_file">Open file</string>
+    <string name="read_aloud">Read aloud</string>
+    <string name="stop_reading">Stop reading</string>
+    <string name="choose_font">Choose font</string>
+    <string name="font_size">Font size</string>
+    <string name="speech_rate">Speech rate</string>
+    <string name="all_tags">All tags</string>
+    <string name="sample_title">Sample.md</string>
+</resources>

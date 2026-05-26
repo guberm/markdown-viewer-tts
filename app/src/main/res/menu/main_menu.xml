@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/action_open" android:title="@string/open_file" android:showAsAction="ifRoom" />
+    <item android:id="@+id/action_read_aloud" android:title="@string/read_aloud" android:showAsAction="ifRoom" />
+    <item android:id="@+id/action_stop_reading" android:title="@string/stop_reading" android:showAsAction="never" />
+</menu>
