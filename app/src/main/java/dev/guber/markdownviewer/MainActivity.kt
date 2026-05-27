@@ -26,6 +26,7 @@ import io.noties.markwon.linkify.LinkifyPlugin
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
+import java.util.UUID
 import java.util.regex.Pattern
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -39,6 +40,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var currentTags: List<String> = emptyList()
     private var selectedTag: String? = null
     private var ttsReady = false
+
+    private enum class SpeechScript {
+        CYRILLIC,
+        LATIN,
+        MIXED,
+        UNKNOWN
+    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -287,8 +295,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         updateSpeechRate()
         tts?.stop()
-        val result = tts?.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, "markdown-viewer")
-        if (result == TextToSpeech.ERROR) {
+        val chunks = chunkForTts(spokenText)
+        if (chunks.isEmpty()) return
+        var hadError = false
+        chunks.forEachIndexed { index, chunk ->
+            val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            val result = tts?.speak(chunk, queueMode, null, "markdown-viewer-${UUID.randomUUID()}")
+            if (result == TextToSpeech.ERROR) {
+                hadError = true
+            }
+        }
+        if (hadError) {
             Toast.makeText(this, "Failed to start text-to-speech", Toast.LENGTH_LONG).show()
         }
     }
@@ -296,9 +313,25 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun setBestTtsLanguageForText(text: String): Boolean {
         val engine = tts ?: return false
         val preferredLocales = buildList {
-            if (containsCyrillic(text)) {
-                add(Locale("ru", "RU"))
-                add(Locale("ru"))
+            when (detectSpeechScript(text)) {
+                SpeechScript.CYRILLIC -> {
+                    add(Locale("ru", "RU"))
+                    add(Locale("ru"))
+                }
+                SpeechScript.LATIN -> {
+                    add(Locale.US)
+                    add(Locale.UK)
+                    add(Locale.ENGLISH)
+                }
+                SpeechScript.MIXED -> {
+                    add(Locale.getDefault())
+                    add(Locale.US)
+                    add(Locale("ru", "RU"))
+                    add(Locale("ru"))
+                }
+                SpeechScript.UNKNOWN -> {
+                    add(Locale.getDefault())
+                }
             }
             add(Locale.getDefault())
             add(Locale.US)
@@ -316,8 +349,58 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return false
     }
 
-    private fun containsCyrillic(text: String): Boolean = text.any {
-        Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CYRILLIC
+    private fun detectSpeechScript(text: String): SpeechScript {
+        var cyrillicCount = 0
+        var latinCount = 0
+        text.forEach {
+            when (Character.UnicodeBlock.of(it)) {
+                Character.UnicodeBlock.CYRILLIC -> cyrillicCount++
+                Character.UnicodeBlock.BASIC_LATIN,
+                Character.UnicodeBlock.LATIN_1_SUPPLEMENT,
+                Character.UnicodeBlock.LATIN_EXTENDED_A,
+                Character.UnicodeBlock.LATIN_EXTENDED_B,
+                Character.UnicodeBlock.LATIN_EXTENDED_ADDITIONAL -> if (it.isLetter()) latinCount++
+            }
+        }
+        return when {
+            cyrillicCount > 0 && latinCount == 0 -> SpeechScript.CYRILLIC
+            latinCount > 0 && cyrillicCount == 0 -> SpeechScript.LATIN
+            latinCount > 0 && cyrillicCount > 0 -> SpeechScript.MIXED
+            else -> SpeechScript.UNKNOWN
+        }
+    }
+
+    private fun chunkForTts(text: String, maxChunkLength: Int = 3000): List<String> {
+        val normalized = text.replace(Regex("\\s+"), " ").trim()
+        if (normalized.isBlank()) return emptyList()
+        if (normalized.length <= maxChunkLength) return listOf(normalized)
+
+        val chunks = mutableListOf<String>()
+        var remaining = normalized
+        while (remaining.isNotBlank()) {
+            if (remaining.length <= maxChunkLength) {
+                chunks += remaining.trim()
+                break
+            }
+            val candidate = remaining.substring(0, maxChunkLength)
+            val splitAt = listOf(
+                candidate.lastIndexOf(". "),
+                candidate.lastIndexOf("! "),
+                candidate.lastIndexOf("? "),
+                candidate.lastIndexOf("; "),
+                candidate.lastIndexOf(": "),
+                candidate.lastIndexOf(", "),
+                candidate.lastIndexOf(' ')
+            ).firstOrNull { it >= maxChunkLength / 2 } ?: maxChunkLength
+
+            val endIndex = if (splitAt == maxChunkLength) maxChunkLength else splitAt + 1
+            val chunk = remaining.substring(0, endIndex).trim()
+            if (chunk.isNotBlank()) {
+                chunks += chunk
+            }
+            remaining = remaining.substring(endIndex).trimStart()
+        }
+        return chunks
     }
 
     private fun filterByTag(markdown: String, tag: String): String {
