@@ -6,9 +6,11 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import android.text.method.LinkMovementMethod
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.TextView
@@ -27,7 +29,6 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
 import java.util.UUID
-import android.speech.tts.Voice
 import java.util.regex.Pattern
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -35,12 +36,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var markwon: Markwon
     private lateinit var prefs: android.content.SharedPreferences
+    private lateinit var documentStateStore: DocumentStateStore
     private var tts: TextToSpeech? = null
     private var currentText: String = SAMPLE_MARKDOWN
     private var currentTitle: String = "Sample.md"
     private var currentTags: List<String> = emptyList()
     private var selectedTag: String? = null
     private var ttsReady = false
+    private var currentDocumentUriString: String? = null
+    private var suppressScrollPersistence = false
 
     private enum class SpeechScript {
         CYRILLIC,
@@ -65,6 +69,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setContentView(binding.root)
 
         prefs = getSharedPreferences("markdown_viewer_prefs", MODE_PRIVATE)
+        documentStateStore = DocumentStateStore(SharedPrefsDocumentStatePersistence(prefs))
         markwon = Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
             .usePlugin(HtmlPlugin.create())
@@ -76,8 +81,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupControls()
         handleIncomingIntent(intent)
         if (intent?.data == null && intent?.action != Intent.ACTION_SEND) {
-            renderMarkdown(SAMPLE_MARKDOWN, "Sample.md")
+            renderMarkdown(SAMPLE_MARKDOWN, "Sample.md", null)
         }
+        renderRecentDocumentsSummary()
+        updateResumeUi()
+    }
+
+    override fun onPause() {
+        persistCurrentReadingPosition()
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -120,6 +132,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        persistCurrentReadingPosition()
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()
@@ -180,6 +193,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding.primaryTtsButton.setOnClickListener {
             speakCurrent()
         }
+        binding.resumeReadingButton.setOnClickListener {
+            resumeReadingPosition()
+        }
+        binding.reopenLastButton.setOnClickListener {
+            reopenLastDocument()
+        }
+        binding.clearHistoryButton.setOnClickListener {
+            documentStateStore.clearAll()
+            renderRecentDocumentsSummary()
+            updateResumeUi()
+            Toast.makeText(this, "History cleared", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.contentScrollView.setOnScrollChangeListener { _: View, _: Int, scrollY: Int, _: Int, _: Int ->
+            if (!suppressScrollPersistence) {
+                currentDocumentUriString?.let { uri ->
+                    documentStateStore.saveReadingPosition(uri, scrollY)
+                    updateResumeUi()
+                    renderRecentDocumentsSummary()
+                }
+            }
+        }
 
         binding.contentView.movementMethod = LinkMovementMethod.getInstance()
         binding.contentView.linksClickable = true
@@ -210,7 +245,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Intent.ACTION_SEND -> {
                 val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
                 if (!sharedText.isNullOrBlank()) {
-                    renderMarkdown(sharedText, "Shared text")
+                    renderMarkdown(sharedText, "Shared text", null)
                 }
             }
         }
@@ -222,7 +257,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val text = contentResolver.openInputStream(uri)?.use { input ->
                 BufferedReader(InputStreamReader(input)).readText()
             } ?: error("Unable to read file")
-            renderMarkdown(text, title)
+            documentStateStore.recordOpen(uri.toString(), title)
+            renderMarkdown(text, title, uri.toString())
         }.onFailure {
             Toast.makeText(this, "Failed to open file: ${it.message}", Toast.LENGTH_LONG).show()
         }
@@ -238,9 +274,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return uri.lastPathSegment?.substringAfterLast('/')
     }
 
-    private fun renderMarkdown(markdown: String, title: String) {
+    private fun renderMarkdown(markdown: String, title: String, uriString: String?) {
         currentText = markdown
         currentTitle = title
+        currentDocumentUriString = uriString
         binding.fileNameText.text = title
         currentTags = extractTags(markdown)
         renderTagChips(currentTags)
@@ -248,6 +285,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             setBestTtsLanguageForText(markdown)
         }
         renderFilteredMarkdown()
+        if (uriString != null) {
+            restoreReadingPosition(uriString)
+        } else {
+            binding.contentScrollView.post { binding.contentScrollView.scrollTo(0, 0) }
+        }
+        renderRecentDocumentsSummary()
+        updateResumeUi()
     }
 
     private fun renderFilteredMarkdown() {
@@ -256,6 +300,71 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         markwon.setMarkdown(binding.contentView, filtered)
         binding.contentView.movementMethod = LinkMovementMethod.getInstance()
         binding.contentView.linksClickable = true
+    }
+
+    private fun restoreReadingPosition(uriString: String) {
+        val savedPosition = documentStateStore.getReadingPosition(uriString) ?: 0
+        suppressScrollPersistence = true
+        binding.contentScrollView.post {
+            binding.contentScrollView.scrollTo(0, savedPosition)
+            binding.contentScrollView.post {
+                suppressScrollPersistence = false
+            }
+        }
+    }
+
+    private fun resumeReadingPosition() {
+        val uriString = currentDocumentUriString ?: return
+        val savedPosition = documentStateStore.getReadingPosition(uriString) ?: return
+        binding.contentScrollView.post {
+            binding.contentScrollView.scrollTo(0, savedPosition)
+            Toast.makeText(this, "Resumed reading position", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun reopenLastDocument() {
+        val last = documentStateStore.getMostRecentDocument()
+        if (last == null) {
+            Toast.makeText(this, "No recent documents yet", Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching {
+            openUri(Uri.parse(last.uriString))
+        }.onFailure {
+            Toast.makeText(this, "Failed to reopen last document", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun persistCurrentReadingPosition() {
+        currentDocumentUriString?.let { uri ->
+            documentStateStore.saveReadingPosition(uri, binding.contentScrollView.scrollY)
+        }
+    }
+
+    private fun renderRecentDocumentsSummary() {
+        val recent = documentStateStore.getRecentDocuments()
+        binding.recentDocsText.text = if (recent.isEmpty()) {
+            "No recent documents yet"
+        } else {
+            recent.take(5).joinToString("\n") { doc ->
+                val resumeNote = doc.lastScrollY?.let { " - resume saved" } ?: ""
+                "- ${doc.title}${resumeNote}"
+            }
+        }
+        binding.reopenLastButton.isEnabled = recent.isNotEmpty()
+        binding.clearHistoryButton.isEnabled = recent.isNotEmpty()
+    }
+
+    private fun updateResumeUi() {
+        val uriString = currentDocumentUriString
+        val savedPosition = uriString?.let { documentStateStore.getReadingPosition(it) }
+        val hasResume = savedPosition != null && savedPosition > 0
+        binding.resumeReadingButton.isEnabled = hasResume
+        binding.resumeStatusText.text = when {
+            uriString == null -> "Resume works for opened files"
+            hasResume -> "Saved reading position is available"
+            else -> "No saved reading position yet"
+        }
     }
 
     private fun renderTagChips(tags: List<String>) {
@@ -330,8 +439,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         if (bestVoice != null) {
             val localeResult = engine.setLanguage(bestVoice.locale)
-            val voiceResult = runCatching { engine.voice = bestVoice }.getOrNull()
-            if (localeResult >= TextToSpeech.LANG_AVAILABLE && voiceResult != null) {
+            val voiceSetWorked = runCatching {
+                engine.voice = bestVoice
+                true
+            }.getOrDefault(false)
+            if (localeResult >= TextToSpeech.LANG_AVAILABLE && voiceSetWorked) {
                 return true
             }
         }
