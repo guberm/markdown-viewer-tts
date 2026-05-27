@@ -83,11 +83,17 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/primaryTtsButton"
+                style="@style/Widget.MaterialComponents.Button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:text="Read aloud" />
+                android:text="Read aloud"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                app:backgroundTint="@color/mdv_primary"
+                app:cornerRadius="14dp"
+                app:rippleColor="@color/mdv_accent" />
         </LinearLayout>
     </LinearLayout>
 

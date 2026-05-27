@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var currentTitle: String = "Sample.md"
     private var currentTags: List<String> = emptyList()
     private var selectedTag: String? = null
+    private var ttsReady = false
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -101,8 +102,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.US
+            ttsReady = true
+            setBestTtsLanguageForText(currentText)
             updateSpeechRate()
+        } else {
+            ttsReady = false
         }
     }
 
@@ -231,6 +235,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding.fileNameText.text = title
         currentTags = extractTags(markdown)
         renderTagChips(currentTags)
+        if (ttsReady) {
+            setBestTtsLanguageForText(markdown)
+        }
         renderFilteredMarkdown()
     }
 
@@ -268,9 +275,49 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun speakCurrent() {
         if (currentText.isBlank()) return
+        if (!ttsReady) {
+            Toast.makeText(this, "Text-to-speech is still initializing", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val spokenText = stripMarkdown(currentText)
+        if (spokenText.isBlank()) return
+        if (!setBestTtsLanguageForText(spokenText)) {
+            Toast.makeText(this, "This TTS voice is not available on the device", Toast.LENGTH_LONG).show()
+            return
+        }
         updateSpeechRate()
         tts?.stop()
-        tts?.speak(stripMarkdown(currentText), TextToSpeech.QUEUE_FLUSH, null, "markdown-viewer")
+        val result = tts?.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, "markdown-viewer")
+        if (result == TextToSpeech.ERROR) {
+            Toast.makeText(this, "Failed to start text-to-speech", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun setBestTtsLanguageForText(text: String): Boolean {
+        val engine = tts ?: return false
+        val preferredLocales = buildList {
+            if (containsCyrillic(text)) {
+                add(Locale("ru", "RU"))
+                add(Locale("ru"))
+            }
+            add(Locale.getDefault())
+            add(Locale.US)
+        }.distinct()
+
+        for (locale in preferredLocales) {
+            val availability = engine.isLanguageAvailable(locale)
+            if (availability >= TextToSpeech.LANG_AVAILABLE) {
+                val setResult = engine.setLanguage(locale)
+                if (setResult >= TextToSpeech.LANG_AVAILABLE) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun containsCyrillic(text: String): Boolean = text.any {
+        Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CYRILLIC
     }
 
     private fun filterByTag(markdown: String, tag: String): String {
