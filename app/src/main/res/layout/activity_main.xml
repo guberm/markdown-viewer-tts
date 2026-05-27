@@ -102,7 +102,7 @@
         android:layout_width="320dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        android:background="@android:color/white"
+        android:background="@color/mdv_drawer_surface"
         android:orientation="vertical"
         android:padding="16dp">
 
@@ -110,6 +110,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Settings"
+            android:textColor="@color/mdv_text"
             android:textStyle="bold"
             android:textSize="20sp" />
 
@@ -117,7 +118,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Font family" />
+            android:text="Font family"
+            android:textColor="@color/mdv_text" />
 
         <Spinner
             android:id="@+id/fontSpinner"
@@ -129,7 +131,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Font size" />
+            android:text="Font size"
+            android:textColor="@color/mdv_text" />
 
         <SeekBar
             android:id="@+id/fontSeek"
@@ -143,7 +146,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Speech rate" />
+            android:text="Speech rate"
+            android:textColor="@color/mdv_text" />
 
         <SeekBar
             android:id="@+id/speechSeek"

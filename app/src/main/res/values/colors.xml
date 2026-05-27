@@ -4,5 +4,8 @@
     <color name="mdv_primary_dark">#283593</color>
     <color name="mdv_accent">#5C6BC0</color>
     <color name="mdv_surface">#FAFAFC</color>
+    <color name="mdv_surface_raised">#FFFFFF</color>
     <color name="mdv_text">#111827</color>
+    <color name="mdv_text_secondary">#4B5563</color>
+    <color name="mdv_drawer_surface">#FFFFFF</color>
 </resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mdv_primary">#9FA8FF</color>
+    <color name="mdv_primary_dark">#6E78D6</color>
+    <color name="mdv_accent">#B3BCFF</color>
+    <color name="mdv_surface">#0F1220</color>
+    <color name="mdv_surface_raised">#171B2E</color>
+    <color name="mdv_text">#F3F5FF</color>
+    <color name="mdv_text_secondary">#C5CAE9</color>
+    <color name="mdv_drawer_surface">#151A2B</color>
+</resources>

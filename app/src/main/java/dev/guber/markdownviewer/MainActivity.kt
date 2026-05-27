@@ -27,6 +27,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
 import java.util.UUID
+import android.speech.tts.Voice
 import java.util.regex.Pattern
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -312,30 +313,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun setBestTtsLanguageForText(text: String): Boolean {
         val engine = tts ?: return false
-        val preferredLocales = buildList {
-            when (detectSpeechScript(text)) {
-                SpeechScript.CYRILLIC -> {
-                    add(Locale("ru", "RU"))
-                    add(Locale("ru"))
-                }
-                SpeechScript.LATIN -> {
-                    add(Locale.US)
-                    add(Locale.UK)
-                    add(Locale.ENGLISH)
-                }
-                SpeechScript.MIXED -> {
-                    add(Locale.getDefault())
-                    add(Locale.US)
-                    add(Locale("ru", "RU"))
-                    add(Locale("ru"))
-                }
-                SpeechScript.UNKNOWN -> {
-                    add(Locale.getDefault())
-                }
+        val preferredLocales = buildPreferredLocales(text)
+
+        val availableVoices = runCatching { engine.voices.orEmpty() }.getOrDefault(emptySet())
+        val bestVoice = availableVoices
+            .asSequence()
+            .filter { voice ->
+                !voice.isNetworkConnectionRequired &&
+                    voice.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true &&
+                    preferredLocales.any { preferred -> matchesLocale(voice.locale, preferred) }
             }
-            add(Locale.getDefault())
-            add(Locale.US)
-        }.distinct()
+            .sortedWith(compareByDescending<Voice> { voiceQualityScore(it) }
+                .thenByDescending { it.locale.country.equals("RU", ignoreCase = true) }
+                .thenBy { it.name })
+            .firstOrNull()
+
+        if (bestVoice != null) {
+            val localeResult = engine.setLanguage(bestVoice.locale)
+            val voiceResult = runCatching { engine.voice = bestVoice }.getOrNull()
+            if (localeResult >= TextToSpeech.LANG_AVAILABLE && voiceResult != null) {
+                return true
+            }
+        }
 
         for (locale in preferredLocales) {
             val availability = engine.isLanguageAvailable(locale)
@@ -347,6 +346,51 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
         return false
+    }
+
+    private fun buildPreferredLocales(text: String): List<Locale> = buildList {
+        when (detectSpeechScript(text)) {
+            SpeechScript.CYRILLIC -> {
+                add(Locale("ru", "RU"))
+                add(Locale("ru"))
+            }
+            SpeechScript.LATIN -> {
+                add(Locale.US)
+                add(Locale.UK)
+                add(Locale.ENGLISH)
+            }
+            SpeechScript.MIXED -> {
+                add(Locale.getDefault())
+                add(Locale.US)
+                add(Locale("ru", "RU"))
+                add(Locale("ru"))
+            }
+            SpeechScript.UNKNOWN -> {
+                add(Locale.getDefault())
+            }
+        }
+        add(Locale.getDefault())
+        add(Locale.US)
+    }.distinct()
+
+    private fun matchesLocale(candidate: Locale?, preferred: Locale): Boolean {
+        if (candidate == null) return false
+        if (!candidate.language.equals(preferred.language, ignoreCase = true)) return false
+        return preferred.country.isBlank() || candidate.country.equals(preferred.country, ignoreCase = true)
+    }
+
+    private fun voiceQualityScore(voice: Voice): Int {
+        var score = 0
+        score += voice.quality
+        score += voice.latency
+        if (voice.locale.country.equals("RU", ignoreCase = true)) score += 1000
+        val name = voice.name.lowercase(Locale.ROOT)
+        if ("natural" in name) score += 500
+        if ("premium" in name) score += 250
+        if ("enhanced" in name) score += 150
+        if ("local" in name) score += 100
+        if ("network" in name) score -= 500
+        return score
     }
 
     private fun detectSpeechScript(text: String): SpeechScript {
