@@ -116,6 +116,39 @@
             android:textSize="20sp" />
 
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Theme"
+            android:textColor="@color/mdv_text" />
+
+        <RadioGroup
+            android:id="@+id/themeRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/themeSystemRadio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="System" />
+
+            <RadioButton
+                android:id="@+id/themeLightRadio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Light" />
+
+            <RadioButton
+                android:id="@+id/themeDarkRadio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Dark" />
+        </RadioGroup>
+
+        <TextView
             android:id="@+id/resumeStatusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

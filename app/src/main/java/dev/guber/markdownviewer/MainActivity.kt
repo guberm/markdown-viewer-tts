@@ -17,6 +17,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
@@ -38,6 +39,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var markwon: Markwon
     private lateinit var prefs: android.content.SharedPreferences
+    private lateinit var themeModeStore: ThemeModeStore
     private lateinit var documentStateStore: DocumentStateStore
     private var tts: TextToSpeech? = null
     private var currentText: String = SAMPLE_MARKDOWN
@@ -71,6 +73,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setContentView(binding.root)
 
         prefs = getSharedPreferences("markdown_viewer_prefs", MODE_PRIVATE)
+        themeModeStore = ThemeModeStore(SharedPrefsThemeModePersistence(prefs))
+        applyThemeMode(themeModeStore.load())
         documentStateStore = DocumentStateStore(SharedPrefsDocumentStatePersistence(prefs))
         markwon = Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
@@ -182,6 +186,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun setupControls() {
+        bindThemeControls()
         val fontOptions = listOf("Sans", "Serif", "Monospace")
         binding.fontSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, fontOptions)
         val savedFont = prefs.getString("font_family", "Sans") ?: "Sans"
@@ -249,6 +254,37 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         binding.contentView.movementMethod = LinkMovementMethod.getInstance()
         binding.contentView.linksClickable = true
         applyFontPrefs()
+    }
+
+    private fun bindThemeControls() {
+        updateThemeSelectionUi(themeModeStore.load())
+        binding.themeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val selectedMode = when (checkedId) {
+                binding.themeLightRadio.id -> ThemeMode.LIGHT
+                binding.themeDarkRadio.id -> ThemeMode.DARK
+                else -> ThemeMode.SYSTEM
+            }
+            if (selectedMode != themeModeStore.load()) {
+                themeModeStore.save(selectedMode)
+                applyThemeMode(selectedMode)
+                recreate()
+            }
+        }
+    }
+
+    private fun updateThemeSelectionUi(mode: ThemeMode) {
+        val radioId = when (mode) {
+            ThemeMode.SYSTEM -> binding.themeSystemRadio.id
+            ThemeMode.LIGHT -> binding.themeLightRadio.id
+            ThemeMode.DARK -> binding.themeDarkRadio.id
+        }
+        if (binding.themeRadioGroup.checkedRadioButtonId != radioId) {
+            binding.themeRadioGroup.check(radioId)
+        }
+    }
+
+    private fun applyThemeMode(mode: ThemeMode) {
+        AppCompatDelegate.setDefaultNightMode(ThemeModeStore.toNightMode(mode))
     }
 
     private fun applyFontPrefs() {
