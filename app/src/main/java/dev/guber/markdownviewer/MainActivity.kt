@@ -16,9 +16,9 @@ import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.chip.Chip
@@ -143,15 +143,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun setupToolbarAndDrawer() {
         setSupportActionBar(binding.toolbar)
-        val toggle = ActionBarDrawerToggle(
-            this,
-            binding.drawerLayout,
-            binding.toolbar,
-            R.string.app_name,
-            R.string.app_name
-        )
-        binding.drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
+        binding.toolbar.setNavigationIcon(com.google.android.material.R.drawable.abc_ic_menu_overflow_material)
+        binding.toolbar.setNavigationOnClickListener {
+            when (SettingsDrawerBehavior.onNavigationClick(binding.drawerLayout.isDrawerOpen(GravityCompat.END))) {
+                DrawerAction.OPEN -> binding.drawerLayout.openDrawer(GravityCompat.END)
+                DrawerAction.CLOSE -> binding.drawerLayout.closeDrawer(GravityCompat.END)
+            }
+        }
     }
 
     private fun applyWindowInsets() {
