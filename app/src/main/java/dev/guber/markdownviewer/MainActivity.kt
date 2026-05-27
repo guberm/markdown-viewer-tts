@@ -19,6 +19,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.chip.Chip
 import dev.guber.markdownviewer.databinding.ActivityMainBinding
 import io.noties.markwon.Markwon
@@ -78,6 +80,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tts = TextToSpeech(this, this)
 
         setupToolbarAndDrawer()
+        applyWindowInsets()
         setupControls()
         handleIncomingIntent(intent)
         if (intent?.data == null && intent?.action != Intent.ACTION_SEND) {
@@ -149,6 +152,35 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
         binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
+    }
+
+    private fun applyWindowInsets() {
+        val toolbarBasePaddingTop = binding.toolbar.paddingTop
+        val drawerBasePaddingTop = binding.settingsDrawer.paddingTop
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { view, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            view.setPadding(
+                view.paddingLeft,
+                WindowInsetUi.adjustTopPadding(toolbarBasePaddingTop, statusBars.top),
+                view.paddingRight,
+                view.paddingBottom,
+            )
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.settingsDrawer) { view, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            view.setPadding(
+                view.paddingLeft,
+                WindowInsetUi.adjustTopPadding(drawerBasePaddingTop, statusBars.top),
+                view.paddingRight,
+                view.paddingBottom,
+            )
+            insets
+        }
+
+        ViewCompat.requestApplyInsets(binding.drawerLayout)
     }
 
     private fun setupControls() {
